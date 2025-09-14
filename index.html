@@ -15,6 +15,7 @@
     
     <!-- Utility Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/browser-image-compression@2.0.2/dist/browser-image-compression.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
@@ -51,6 +52,7 @@
         const { PDFDocument } = window.PDFLib;
         const imageCompression = window.imageCompression;
         const QRCode = window.QRCode;
+        const { html2canvas } = window;
 
         // --- MOCK DATA & COMPONENTS ------------------------------------------
         
@@ -70,7 +72,7 @@
         };
 
         const TOOLS = [
-            { id: 'pdf-maker', title: 'PDF Maker', description: 'Create PDFs from text or files', component: 'PDFMaker', icon: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> },
+            { id: 'pdf-maker', title: 'PDF Maker', description: 'Create PDFs from text or files', component: 'PDFMaker', icon: (props) => <svg {...props} xmlns="http://www.w.3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg> },
             { id: 'image-cropper', title: 'Image Cropper', description: 'Crop images with set ratios', component: 'ImageCropper', icon: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6.13 1L6 16a2 2 0 0 0 2 2h15"></path><path d="M1 6.13L16 6a2 2 0 0 1 2 2v15"></path></svg> },
             { id: 'image-compressor', title: 'Image Compressor', description: 'Reduce image file size', component: 'ImageCompressor', icon: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M5 12h14M10 19v-2M10 7V5M14 19v-2M14 7V5M7 10H5M19 10h-2M7 14H5M19 14h-2"/></svg> },
             { id: 'image-to-pdf', title: 'Image to PDF', description: 'Convert images into a single PDF', component: 'ImageToPDF', icon: (props) => <svg {...props} xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M8 12h8v8H8z"/><path d="M12 12v8"/><path d="M10 14l2-2 2 2"/></svg> },
@@ -99,9 +101,9 @@
             const ActiveComponent = activeTool ? TOOL_COMPONENTS[activeTool.component] : null;
             
             return (
-                <div className="min-h-screen">
+                <div className="min-h-screen flex flex-col">
                     <Header searchQuery={searchQuery} setSearchQuery={setSearchQuery} />
-                    <main className="container mx-auto p-4 md:p-6 lg:p-8">
+                    <main className="flex-grow container mx-auto p-4 md:p-6 lg:p-8">
                         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
                             {filteredTools.map(tool => (
                                 <div 
@@ -119,7 +121,7 @@
                                 </div>
                             ))}
                         </div>
-                        {filteredTools.length === 0 && (
+                         {filteredTools.length === 0 && (
                             <div className="text-center py-12">
                                 <p className="text-gray-500 dark:text-gray-400">No tools found for "{searchQuery}"</p>
                             </div>
@@ -130,6 +132,7 @@
                             <ActiveComponent />
                         </Modal>
                     )}
+                    <Footer />
                 </div>
             );
         }
@@ -160,6 +163,25 @@
             );
         }
         
+        function Footer() {
+            return (
+                <footer className="bg-white/80 dark:bg-gray-900/60 backdrop-blur-lg border-t border-gray-200 dark:border-gray-700/50 mt-auto">
+                    <div className="container mx-auto px-4 sm:px-6 py-6 text-center text-gray-600 dark:text-gray-400">
+                        <div className="flex justify-center items-center space-x-6 mb-4">
+                            <a href="https://programmervinay.github.io" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                Personal Portfolio
+                            </a>
+                             <span className="text-gray-300 dark:text-gray-600">|</span>
+                            <a href="https://programmervinay.github.io/tradervinay" target="_blank" rel="noopener noreferrer" className="text-sm hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                                Karvin Trading
+                            </a>
+                        </div>
+                        <p className="text-xs">&copy; {new Date().getFullYear()} Karvin Tools. All Rights Reserved.</p>
+                    </div>
+                </footer>
+            );
+        }
+
         function ThemeToggle() {
             const [isDark, setIsDark] = useState(
                 localStorage.getItem('theme') === 'dark' || 
@@ -219,7 +241,7 @@
         );
 
         const Spinner = () => (
-             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+             <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
              </svg>
@@ -267,6 +289,7 @@
         function PDFMaker() {
             const [text, setText] = useState('<h1>My Document</h1><p>Start writing here...</p>');
             const [status, setStatus] = useState('');
+            const [isProcessing, setIsProcessing] = useState(false);
 
             const handleFileUpload = (files) => {
                 const file = files[0];
@@ -280,23 +303,60 @@
             };
 
             const handleExport = () => {
-                setStatus('Generating PDF...');
-                try {
-                    const doc = new jsPDF();
-                    doc.html(text, {
-                        callback: function (doc) {
-                            doc.save("document.pdf");
-                            setStatus("PDF generated successfully!");
-                        },
-                        x: 10,
-                        y: 10,
-                        width: 190,
-                        windowWidth: 800,
-                    });
-                } catch (e) {
-                    console.error(e);
-                    setStatus("Failed to generate PDF.");
+                if (!text.trim()) {
+                    setStatus("Cannot export an empty document.");
+                    return;
                 }
+                setIsProcessing(true);
+                setStatus('Generating PDF...');
+
+                const printArea = document.createElement('div');
+                printArea.style.width = '210mm';
+                printArea.style.padding = '15mm';
+                printArea.style.backgroundColor = 'white';
+                printArea.style.color = 'black';
+                printArea.style.position = 'absolute';
+                printArea.style.left = '-9999px';
+                printArea.innerHTML = text;
+                document.body.appendChild(printArea);
+
+                html2canvas(printArea, { scale: 2 })
+                    .then((canvas) => {
+                        const imgData = canvas.toDataURL('image/png');
+                        const pdf = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+                        const pdfWidth = pdf.internal.pageSize.getWidth();
+                        const pdfHeight = pdf.internal.pageSize.getHeight();
+                        const canvasWidth = canvas.width;
+                        const canvasHeight = canvas.height;
+                        const ratio = canvasWidth / canvasHeight;
+                        
+                        const imgWidth = pdfWidth;
+                        const imgHeight = imgWidth / ratio;
+                        
+                        let heightLeft = imgHeight;
+                        let position = 0;
+
+                        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                        heightLeft -= pdfHeight;
+
+                        while (heightLeft > 0) {
+                            position = heightLeft - imgHeight;
+                            pdf.addPage();
+                            pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+                            heightLeft -= pdfHeight;
+                        }
+                        
+                        pdf.save("document.pdf");
+                        setStatus("PDF generated successfully!");
+                    })
+                    .catch(err => {
+                        console.error(err);
+                        setStatus("Failed to generate PDF. Check console for errors.");
+                    })
+                    .finally(() => {
+                        document.body.removeChild(printArea);
+                        setIsProcessing(false);
+                    });
             };
 
             return (
@@ -315,7 +375,9 @@
                            placeholder="Type HTML here, e.g., <h1>Title</h1><p>Paragraph.</p>"
                        />
                     </div>
-                    <Button onClick={handleExport} className="w-full">Export as PDF</Button>
+                    <Button onClick={handleExport} className="w-full flex justify-center items-center" disabled={isProcessing}>
+                        {isProcessing ? <><Spinner /> Generating...</> : 'Export as PDF'}
+                    </Button>
                     {status && <p className="text-center">{status}</p>}
                 </div>
             );
@@ -488,8 +550,8 @@
                                <input id="quality" type="range" min="0.1" max="1" step="0.1" value={quality} onChange={(e) => setQuality(e.target.value)} className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer dark:bg-gray-700" />
                             </div>
                             <div className="flex gap-2">
-                                <Button onClick={compressImage} className="w-full" disabled={isCompressing}>
-                                    {isCompressing ? <Spinner /> : 'Compress Image'}
+                                <Button onClick={compressImage} className="w-full flex justify-center items-center" disabled={isCompressing}>
+                                    {isCompressing ? <><Spinner/> Compressing...</> : 'Compress Image'}
                                 </Button>
                                 <Button onClick={handleReset} className="w-full bg-gray-500 hover:bg-gray-600">Reset</Button>
                             </div>
@@ -589,7 +651,148 @@
             );
         }
 
-        function PDFSplitMerge() {}
+        function PDFSplitMerge() {
+            const [mode, setMode] = useState('split'); // 'split' or 'merge'
+            const [splitFile, setSplitFile] = useState(null);
+            const [mergeFiles, setMergeFiles] = useState([]);
+            const [pageRange, setPageRange] = useState('');
+            const [status, setStatus] = useState('');
+            const [isProcessing, setIsProcessing] = useState(false);
+
+            const handleSplitFile = (files) => setSplitFile(files[0]);
+            const handleMergeFiles = (files) => setMergeFiles(Array.from(files));
+
+            const handleSplit = async () => {
+                if (!splitFile || !pageRange) {
+                    setStatus('Please select a file and enter a page range.');
+                    return;
+                }
+                setIsProcessing(true);
+                setStatus('Splitting PDF...');
+                try {
+                    const existingPdfBytes = await splitFile.arrayBuffer();
+                    const pdfDoc = await PDFDocument.load(existingPdfBytes);
+                    const newPdf = await PDFDocument.create();
+                    
+                    const pageCount = pdfDoc.getPageCount();
+                    const pagesToCopy = [];
+                    const ranges = pageRange.split(',');
+                    
+                    ranges.forEach(range => {
+                        if (range.includes('-')) {
+                            const [start, end] = range.split('-').map(num => parseInt(num.trim()));
+                            if (!isNaN(start) && !isNaN(end)) {
+                                for (let i = start; i <= end; i++) {
+                                    if (i > 0 && i <= pageCount) pagesToCopy.push(i - 1);
+                                }
+                            }
+                        } else {
+                            const page = parseInt(range.trim());
+                            if (!isNaN(page) && page > 0 && page <= pageCount) {
+                                pagesToCopy.push(page - 1);
+                            }
+                        }
+                    });
+
+                    const copiedPages = await newPdf.copyPages(pdfDoc, pagesToCopy);
+                    copiedPages.forEach(page => newPdf.addPage(page));
+
+                    const pdfBytes = await newPdf.save();
+                    const blob = new Blob([pdfBytes], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `split_${splitFile.name}`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    setStatus('PDF split successfully!');
+                } catch (e) {
+                    console.error(e);
+                    setStatus('Error splitting PDF. Please check the file and page range.');
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+            
+            const handleMerge = async () => {
+                if (mergeFiles.length < 2) {
+                    setStatus('Please select at least two PDF files to merge.');
+                    return;
+                }
+                setIsProcessing(true);
+                setStatus('Merging PDFs...');
+                try {
+                    const mergedPdf = await PDFDocument.create();
+                    for (const file of mergeFiles) {
+                        const pdfBytes = await file.arrayBuffer();
+                        const pdfDoc = await PDFDocument.load(pdfBytes);
+                        const copiedPages = await mergedPdf.copyPages(pdfDoc, pdfDoc.getPageIndices());
+                        copiedPages.forEach(page => mergedPdf.addPage(page));
+                    }
+                    const mergedPdfBytes = await mergedPdf.save();
+                    const blob = new Blob([mergedPdfBytes], { type: 'application/pdf' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'merged.pdf';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    setStatus('PDFs merged successfully!');
+                } catch (e) {
+                    console.error(e);
+                    setStatus('Error merging PDFs. Please ensure all files are valid PDFs.');
+                } finally {
+                    setIsProcessing(false);
+                }
+            };
+
+            return (
+                <div className="space-y-4">
+                    <div className="flex justify-center border-b dark:border-gray-700">
+                        <button onClick={() => setMode('split')} className={`px-4 py-2 ${mode === 'split' ? 'border-b-2 border-blue-600 text-blue-600' : ''}`}>Split</button>
+                        <button onClick={() => setMode('merge')} className={`px-4 py-2 ${mode === 'merge' ? 'border-b-2 border-blue-600 text-blue-600' : ''}`}>Merge</button>
+                    </div>
+
+                    {mode === 'split' && (
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-center">Split a PDF</h3>
+                            <FileInput onFileChange={handleSplitFile} accept=".pdf" />
+                            {splitFile && <p className="text-center text-sm">Selected: {splitFile.name}</p>}
+                            <Input 
+                                type="text" 
+                                value={pageRange} 
+                                onChange={e => setPageRange(e.target.value)} 
+                                placeholder="e.g., 1-3, 5, 8-10"
+                            />
+                            <Button onClick={handleSplit} className="w-full flex justify-center items-center" disabled={isProcessing}>
+                                {isProcessing ? <><Spinner/> Splitting...</> : 'Split PDF'}
+                            </Button>
+                        </div>
+                    )}
+
+                    {mode === 'merge' && (
+                        <div className="space-y-4">
+                            <h3 className="font-semibold text-center">Merge PDFs</h3>
+                            <FileInput onFileChange={handleMergeFiles} accept=".pdf" multiple />
+                            {mergeFiles.length > 0 && (
+                                <ul className="text-center text-sm list-disc pl-5">
+                                    {mergeFiles.map(f => <li key={f.name}>{f.name}</li>)}
+                                </ul>
+                            )}
+                            <Button onClick={handleMerge} className="w-full flex justify-center items-center" disabled={isProcessing}>
+                                {isProcessing ? <><Spinner/> Merging...</> : `Merge ${mergeFiles.length} PDFs`}
+                            </Button>
+                        </div>
+                    )}
+                    {status && <p className="text-center mt-2">{status}</p>}
+                </div>
+            );
+        }
+
 
         function QRCodeGenerator() {
             const [text, setText] = useState('https://react.dev');
