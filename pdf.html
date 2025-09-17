@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple PDF Reader</title>
+    <!-- Tailwind CSS for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- PDF.js library from Mozilla -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* Custom styles for a better look and feel */
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Hide the default file input */
+        #pdf-upload {
+            display: none;
+        }
+        /* Style the custom upload button */
+        #upload-label {
+            cursor: pointer;
+        }
+        /* Custom scrollbar for the viewer */
+        #pdf-viewer-container::-webkit-scrollbar {
+            width: 8px;
+        }
+        #pdf-viewer-container::-webkit-scrollbar-track {
+            background: #2d3748; /* gray-800 */
+        }
+        #pdf-viewer-container::-webkit-scrollbar-thumb {
+            background: #718096; /* gray-500 */
+            border-radius: 4px;
+        }
+        #pdf-viewer-container::-webkit-scrollbar-thumb:hover {
+            background: #a0aec0; /* gray-400 */
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-white flex flex-col h-screen">
+
+    <!-- Header Section with Controls -->
+    <header class="bg-gray-800 shadow-lg p-3 sm:p-4 sticky top-0 z-20">
+        <div class="container mx-auto flex flex-wrap justify-between items-center">
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-200 mr-4">PDF Reader</h1>
+
+            <!-- Controls: Visible only after a PDF is loaded -->
+            <div id="pdf-controls" class="hidden items-center space-x-2 sm:space-x-4">
+                <button id="prev-page" class="control-btn" title="Previous Page">
+                    <i class="fas fa-arrow-left"></i>
+                </button>
+                <div class="flex items-center space-x-1 text-sm sm:text-base">
+                    <span id="page-num" class="font-mono">0</span>
+                    <span>/</span>
+                    <span id="page-count" class="font-mono">0</span>
+                </div>
+                <button id="next-page" class="control-btn" title="Next Page">
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+
+                <div class="h-6 w-px bg-gray-600"></div>
+
+                <button id="zoom-out" class="control-btn" title="Zoom Out">
+                    <i class="fas fa-search-minus"></i>
+                </button>
+                 <button id="zoom-in" class="control-btn" title="Zoom In">
+                    <i class="fas fa-search-plus"></i>
+                </button>
+            </div>
+
+            <!-- File Upload Button -->
+            <label id="upload-label" for="pdf-upload" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg transition-all duration-300 shadow-md">
+                <i class="fas fa-folder-open mr-2"></i>
+                <span>Open PDF</span>
+            </label>
+            <input type="file" id="pdf-upload" accept="application/pdf">
+        </div>
+    </header>
+
+    <!-- Main Content: PDF Viewer -->
+    <main id="pdf-viewer-container" class="flex-grow flex justify-center items-start p-4 bg-gray-900 overflow-auto">
+        <!-- Initial Message / Loader -->
+        <div id="initial-message" class="flex flex-col items-center justify-center h-full text-gray-500">
+             <svg class="w-24 h-24 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+            <h2 class="text-2xl font-semibold">Select a PDF file to get started</h2>
+            <p class="mt-2">Your document will be displayed here.</p>
+        </div>
+        <!-- Canvas for rendering the PDF page -->
+        <canvas id="pdf-canvas" class="hidden shadow-2xl rounded-lg"></canvas>
+    </main>
+
+    <script>
+        // Set the workerSrc for pdf.js
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js`;
+
+        // DOM Elements
+        const fileInput = document.getElementById('pdf-upload');
+        const canvas = document.getElementById('pdf-canvas');
+        const ctx = canvas.getContext('2d');
+        const initialMessage = document.getElementById('initial-message');
+        const controls = document.getElementById('pdf-controls');
+        const pageNumEl = document.getElementById('page-num');
+        const pageCountEl = document.getElementById('page-count');
+        const prevPageBtn = document.getElementById('prev-page');
+        const nextPageBtn = document.getElementById('next-page');
+        const zoomInBtn = document.getElementById('zoom-in');
+        const zoomOutBtn = document.getElementById('zoom-out');
+        const uploadLabel = document.getElementById('upload-label');
+
+        // State
+        let pdfDoc = null;
+        let pageNum = 1;
+        let pageIsRendering = false;
+        let pageNumIsPending = null;
+        let scale = 1.5;
+
+        // Render the page
+        const renderPage = async (num) => {
+            pageIsRendering = true;
+
+            // Get page
+            const page = await pdfDoc.getPage(num);
+
+            // Set scale
+            const viewport = page.getViewport({ scale });
+            canvas.height = viewport.height;
+            canvas.width = viewport.width;
+
+            const renderContext = {
+                canvasContext: ctx,
+                viewport
+            };
+
+            const renderTask = page.render(renderContext);
+
+            renderTask.promise.then(() => {
+                pageIsRendering = false;
+                if (pageNumIsPending !== null) {
+                    renderPage(pageNumIsPending);
+                    pageNumIsPending = null;
+                }
+            });
+
+            // Update UI
+            pageNumEl.textContent = num;
+            updateNavButtons();
+        };
+
+        // Queue a page render
+        const queueRenderPage = (num) => {
+            if (pageIsRendering) {
+                pageNumIsPending = num;
+            } else {
+                renderPage(num);
+            }
+        };
+        
+        // Update navigation button states
+        const updateNavButtons = () => {
+            prevPageBtn.disabled = pageNum <= 1;
+            nextPageBtn.disabled = pageNum >= pdfDoc.numPages;
+            prevPageBtn.classList.toggle('opacity-50', prevPageBtn.disabled);
+            prevPageBtn.classList.toggle('cursor-not-allowed', prevPageBtn.disabled);
+            nextPageBtn.classList.toggle('opacity-50', nextPageBtn.disabled);
+            nextPageBtn.classList.toggle('cursor-not-allowed', nextPageBtn.disabled);
+        };
+
+
+        // Show previous page
+        const showPrevPage = () => {
+            if (pageNum <= 1) return;
+            pageNum--;
+            queueRenderPage(pageNum);
+        };
+
+        // Show next page
+        const showNextPage = () => {
+            if (pageNum >= pdfDoc.numPages) return;
+            pageNum++;
+            queueRenderPage(pageNum);
+        };
+
+        // Zoom In
+        const zoomIn = () => {
+            if (scale >= 3.0) return; // Max zoom level
+            scale += 0.25;
+            queueRenderPage(pageNum);
+        };
+        
+        // Zoom Out
+        const zoomOut = () => {
+            if (scale <= 0.5) return; // Min zoom level
+            scale -= 0.25;
+            queueRenderPage(pageNum);
+        };
+
+
+        // Handle file selection
+        fileInput.addEventListener('change', e => {
+            const file = e.target.files[0];
+            if (!file || file.type !== 'application/pdf') {
+                return;
+            }
+
+            const fileReader = new FileReader();
+            fileReader.onload = function() {
+                const typedarray = new Uint8Array(this.result);
+                const loadingTask = pdfjsLib.getDocument(typedarray);
+                
+                initialMessage.innerHTML = `<div class="text-center"><div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-400 mx-auto"></div><p class="mt-4">Loading Document...</p></div>`;
+
+                loadingTask.promise.then(pdfDoc_ => {
+                    pdfDoc = pdfDoc_;
+                    pageCountEl.textContent = pdfDoc.numPages;
+
+                    // Reset to first page
+                    pageNum = 1;
+                    renderPage(pageNum);
+
+                    // Show canvas and controls, hide initial message
+                    canvas.classList.remove('hidden');
+                    controls.classList.remove('hidden');
+                    controls.classList.add('flex');
+                    initialMessage.classList.add('hidden');
+                    uploadLabel.querySelector('span').textContent = 'Change PDF';
+
+                }).catch(err => {
+                     initialMessage.innerHTML = `<div class="text-red-400 text-center"><i class="fas fa-exclamation-triangle text-4xl mb-4"></i><p>Error loading PDF.</p><p class="text-sm text-gray-500">${err.message}</p></div>`;
+                     initialMessage.classList.remove('hidden');
+                     canvas.classList.add('hidden');
+                     controls.classList.add('hidden');
+                });
+            };
+            fileReader.readAsArrayBuffer(file);
+        });
+
+        // Event Listeners
+        prevPageBtn.addEventListener('click', showPrevPage);
+        nextPageBtn.addEventListener('click', showNextPage);
+        zoomInBtn.addEventListener('click', zoomIn);
+        zoomOutBtn.addEventListener('click', zoomOut);
+        
+        // Add Tailwind classes to control buttons for consistent styling
+        document.querySelectorAll('.control-btn').forEach(btn => {
+           btn.classList.add('bg-gray-700', 'hover:bg-gray-600', 'text-white', 'font-bold', 'py-2', 'px-3', 'rounded-md', 'transition-all', 'duration-200', 'disabled:opacity-50', 'disabled:cursor-not-allowed');
+        });
+
+    </script>
+</body>
+</html>
